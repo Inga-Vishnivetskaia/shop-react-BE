@@ -1,17 +1,31 @@
-'use strict';
+require('dotenv').config();
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
 
-var mock = require('../products-mock');
+const getAllProducts = async () => {
+    const scanResult = await dynamo.scan({"TableName": process.env.DYNAMODB_PRODUCTS}).promise();    
+    return scanResult;
+}
+const getStockInfo = async () => {
+    const scanResult = await dynamo.scan({"TableName": process.env.DYNAMODB_STOCKS}).promise();    
+    return scanResult;
+}
 
-module.exports.getProductsList = async (event) => {
+exports.getProductsList = async (event) => {
+    const products = await getAllProducts();
+    const stocks = await getStockInfo();
 
-  return {
-    statusCode: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-    },
-    body: JSON.stringify(mock.products),   
-  };
-
-  // Use this code if you don't use the http event with the LAMBDA-PROXY integration
-  // return { message: 'Go Serverless v1.0! Your function executed successfully!', event };
+    const data = products.Items.map(product => {
+      const stock = stocks.Items.find(s => s.product_id == product.id);
+      if (stock) {
+          product.count = stock.count;
+      }
+      return product;
+  });
+    
+    const response = {
+        statusCode: 200,
+        body: JSON.stringify(data),
+    };
+    return response;
 };
