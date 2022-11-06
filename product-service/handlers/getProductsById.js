@@ -1,16 +1,26 @@
 'use strict';
+require('dotenv').config();
 
-let mock = require('../products-mock');
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
 
-const getProduct = (id) => {
-    const product = mock.products.find(product => product.productId == id);
-    return product;
+const getProduct = async ( param ) => {
+  const response = await dynamo.query(param).promise();
+  return response.Items;
+}
+
+const productsParams = {
+  TableName: process.env.DYNAMODB_PRODUCTS,
+  KeyConditionExpression: "id = :id",
 }
 
 module.exports.getProductsById = async (event) => {
-
     const { productId } = event.pathParameters;
-    const product = getProduct(productId);
+    productsParams.ExpressionAttributeValues = {
+      ":id": productId,
+    }
+
+    const product = await getProduct(productsParams);
     let body = product;
     let statusCode = 200;
 
@@ -21,7 +31,8 @@ module.exports.getProductsById = async (event) => {
     return {
       statusCode,      	
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
       },
       body: JSON.stringify(body)
       };
